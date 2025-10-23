@@ -1,4 +1,5 @@
 import os
+from getpass import getpass
 
 # Role identifiers
 GUEST = -1
@@ -6,12 +7,20 @@ ADMIN = 0
 STAFF = 1
 MEMBER = 2
 
+roles = ["ADMIN", "STAFF", "MEMBER", "GUEST"]
+
 # Table names
 USERS_TABLE = "users"
 BOOKS_TABLE = "books"
 
 username = "Anonymous"
 role = -1
+
+username = "Bob"
+role = ADMIN
+
+log_message = ""
+history = []
 
 
 # Helper functions
@@ -24,6 +33,15 @@ def exception_quit(e):
 def menu(func):
     def wrapper(*args, **kwargs):
         os.system("cls" if os.name == "nt" else "clear")
+
+        global log_message, history
+
+        history.append(func)
+
+        if log_message:
+            print(log_message)
+            log_message = ""
+
         return func(*args, **kwargs)
 
     return wrapper
@@ -33,7 +51,6 @@ def option_value(x):
     return lambda: x
 
 
-@menu
 def prompt_options(option_texts, option_functions, error_function=exception_quit):
     try:
         print(
@@ -44,6 +61,29 @@ def prompt_options(option_texts, option_functions, error_function=exception_quit
         return option_functions[int(input("Enter option: ") or 1) - 1]()
     except Exception as e:
         return error_function(e)
+
+
+def prompt_inputs(*prompts, types=None):
+    types = types or [str] * len(prompts)
+    return [
+        data_type(input(prompt + ": ")) for data_type, prompt in zip(types, prompts)
+    ]
+
+
+def back(skip_repeat=True):
+    global history
+    if not history:
+        raise Exception("No history to back")
+
+    page = history.pop()
+
+    while skip_repeat and history and page == history[-1]:
+        history.pop()
+
+    if not history:
+        raise Exception("No history to back")
+
+    return history[-1]()
 
 
 # File functions
@@ -60,7 +100,7 @@ def load_table(table_name):
         for data_row in raw_data_rows
     ]
 
-    return [first_column, raw_types] + data_rows
+    return [first_column, raw_types, *data_rows]
 
 
 def dump_table(table_name, table):
@@ -125,14 +165,24 @@ def add_rows(table_name, columns, *value_rows):
 
         for i, (cell, data_type) in enumerate(zip(value_row, types)):
             if type(cell).__name__ != data_type:
-                raise ValueError(
-                    f"Error in row: {value_row}, cell at column {i} is expected to be type {data_type}, found {type(cell).__name__}"
-                )
+                try:
+                    cell = eval(data_type)(cell)  # Attempt to convert cell
+                except ValueError:
+                    raise ValueError(
+                        f"Error in row: {value_row}, cell at column {i} is expected to be type {data_type}, found {type(cell).__name__}"
+                    )
             insert_row[index_map[i]] = cell
 
         data_rows.append(insert_row)
 
     dump_table(table_name, [first_row, types, *data_rows])
+
+
+def delete_rows(table_name, filter_func=lambda x: True):
+    first_row, types, *data_rows = load_table(table_name)
+
+    new_rows = [row for row in data_rows if not filter_func([first_row, types, row])]
+    dump_table([first_row, types, *new_rows])
 
 
 def update_rows(table_name, *column_value_pairs, filter_func=lambda x: True):
@@ -160,6 +210,12 @@ def filter_rows(table, filter_func):
     ]
 
 
+def filter_columns(table, columns):
+    selects = [table[0].index(column) for column in columns]
+
+    return [[cell for i, cell in enumerate(row) if i in selects] for row in table]
+
+
 def where_equal(*column_value_pairs):
     def inner(table_row):
         for column, value in column_value_pairs:
@@ -182,15 +238,40 @@ def create_user(username, password, role=MEMBER):
     )
 
 
+# Book table functions
+def create_book(title, author, isbn, quantity=1):
+    books = load_table(BOOKS_TABLE)
+    id = max(get_column_by_name(books, "id")[2:]) + 1  # Incremental id
+
+    add_rows(
+        BOOKS_TABLE,
+        ("id", "title", "author", "isbn", "quantity"),
+        (id, title, author, isbn, quantity),
+    )
+
+
 # Admin features
 @menu
-def calculator():
-    a = input("first number: ")
-    b = input("second number: ")
+def book_management():
+    return prompt_options(
+        ["Add new books", "Remove books", "Modify books"],
+        [add_book, remove_book, modify_book],
+    )
 
-    print("Sum is", a + b)
-    input("Press enter to continue...")
-    return calculator()
+
+@menu
+def add_book():
+    title, author, isbn = prompt_inputs("Title", "Author", "ISBN")
+
+
+@menu
+def remove_book():
+    pass
+
+
+@menu
+def modify_book():
+    pass
 
 
 # Staff features
@@ -213,41 +294,61 @@ def search_menu():
 def home_menu():
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
-        [login_menu, user_menu("", ADMIN), exit],
+        [login_menu, user_menu, exit],
     )
 
 
 @menu
 def login_menu():
+    global username, role, log_message
     username = input("Username: ")
-    password = input("Password: ")
+    password = getpass()
 
-    # TODO get user and handle incorrect credentials
+    table = load_table(USERS_TABLE)
+    user = filter_rows(
+        table, where_equal(("username", username), ("password", password))
+    )
 
-    return user_menu("Bob", ADMIN)()
+    if len(user) == 2:
+        log_message = "Login failed, invalid credentials, please try again."
+        return login_menu()
+
+    username = get_column_by_name(user, "username")[-1]
+    role = get_column_by_name(user, "role")[-1]
+
+    log_message = (
+        f"[{roles[role]}]{username}, welcome to the LMS (Ligma Management System)\n"
+        + """
+            _     _                       
+            | |   (_) __ _ _ __ ___   __ _ 
+            | |   | |/ _` | '_ ` _ \ / _` |
+            | |___| | (_| | | | | | | (_| |
+            |_____|_|\__, |_| |_| |_|\__,_|
+                    |___/    
+        """
+    )
+
+    return user_menu()
 
 
 @menu
 def user_menu():
-    def menu_function():
-        menu_options = []
+    menu_options = []
 
-        # TODO add options for each user
-        match role:
-            case 0:  # Admin
-                menu_options = [["Caculator", calculator]]
-            case 1:  # Staff
-                menu_options = [["Search Users", search_menu]]
-            case 2:  # Member
-                menu_options = []
-            case -1:  # Guest
-                menu_options = []
+    # TODO add options for each user
+    match role:
+        case 0:  # Admin
+            menu_options = []
+        case 1:  # Staff
+            menu_options = [("Search Users", search_menu)]
+        case 2:  # Member
+            menu_options = []
+        case -1:  # Guest
+            menu_options = []
 
-        menu_options.append(["Logout", home_menu])
+    menu_options.append(["Logout", home_menu])
 
-        return prompt_options(*zip(*menu_options))
-
-    return menu_function
+    return prompt_options(*zip(*menu_options))
 
 
 if __name__ == "__main__":
@@ -263,10 +364,10 @@ if __name__ == "__main__":
     # filtered = filter_rows(table, where_equal(("username", "Bob")))
     print_table(table)
 
-    update_rows(
-        "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
-    )
+    # update_rows(
+    #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
+    # )
 
-    table = load_table("test")
+    # table = load_table("test")
 
-    print_table(table)
+    # print_table(table)
