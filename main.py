@@ -13,6 +13,7 @@ roles = ["ADMIN", "STAFF", "MEMBER", "GUEST"]
 # Table names
 USERS_TABLE = "users"
 BOOKS_TABLE = "books"
+BORROW_LOGS = "borrow_logs"
 
 username = "Anonymous"
 role = -1
@@ -349,6 +350,21 @@ def remove_book():
 
 @menu
 def modify_book():
+    books = load_table(BOOKS_TABLE)
+    titles = get_column_by_name(books, "title")[2:]
+    ids = get_column_by_name(books, "id")[2:]
+
+    modifiable_columns = get_column_by_name(filter_columns(books, ""))
+
+    result = paginator(
+        titles,
+        [option_value(i) for i in range(len(titles))],
+        page_title="Select a book to modify",
+    )
+
+
+@menu
+def user_management():
     pass
 
 
@@ -416,7 +432,10 @@ def user_menu():
     # TODO add options for each user
     match role:
         case 0:  # Admin
-            menu_options = [("Book Management", book_management)]
+            menu_options = [
+                ("Book Management", book_management),
+                ("User Management", user_management),
+            ]
         case 1:  # Staff
             menu_options = [("Search Users", search_menu)]
         case 2:  # Member
@@ -434,11 +453,12 @@ if __name__ == "__main__":
     home_menu()
 
     # add_rows(
-    #     "test",
+    #     BORROW_LOGS,
     #     ("id", "password", "username", "passsword"),
     #     (123123, "psasdsadas", "Ali", 3),
     # )
-    # table = load_table("test")
+    table = load_table("test")
+
     # filtered = filter_rows(table, where_equal(("username", "Bob")))
     # print_table(filtered)
 
