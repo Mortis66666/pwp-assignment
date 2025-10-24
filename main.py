@@ -306,6 +306,28 @@ def where_equal(*column_value_pairs):
     return inner
 
 
+def where_greater(*column_value_pairs):
+    def inner(table_row):
+        for column, value in column_value_pairs:
+            if get_column_by_name(table_row, column)[-1] <= value:
+                return False
+        return True
+
+    return inner
+
+
+def where_not(func):
+    return lambda table_row: not func(table_row)
+
+
+def where_and(*funcs):
+    return lambda table_row: all(func(table_row) for func in funcs)
+
+
+def where_or(*funcs):
+    return lambda table_row: any(func(table_row) for func in funcs)
+
+
 def is_empty(table):
     return len(table) == 2  # Empty if table only contains first two row
 
