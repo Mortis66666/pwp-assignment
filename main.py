@@ -76,6 +76,8 @@ def paginator(
     page_index=0,
     page_title="",
     max_per_page=10,
+    cancel_function=None,
+    error_function=exception_quit,
 ):
     total_options = len(option_texts)
     total_page = math.ceil(total_options / max_per_page)
@@ -105,9 +107,17 @@ def paginator(
     print(page_title)
     print(f"Page {page_index + 1}/{total_page}")
 
+    options = [*page_options, "Previous page", "Next page", "Back to menu"]
+    functions = [*page_functions, previous_page, next_page, back]
+
+    if cancel_function:
+        options.append("Cancel")
+        functions.append(cancel_function)
+
     return prompt_options(
-        [*page_options, "Previous page", "Next page", "Back to menu"],
-        [*page_functions, previous_page, next_page, back],
+        options,
+        functions,
+        error_function=error_function,
     )
 
 
@@ -132,6 +142,19 @@ def back(skip_repeat=True):
         raise Exception("No history to back")
 
     return menu(history[-1])()
+
+
+def log_and_redirect(func, message):
+    def inner():
+        print_log(message)
+        return func()
+
+    return inner
+
+
+def print_log(message):
+    global log_message
+    log_message = message
 
 
 # File functions
@@ -215,7 +238,7 @@ def add_rows(table_name, columns, *value_rows):
                     cell = eval(data_type)(cell)  # Attempt to convert cell
                 except ValueError:
                     raise ValueError(
-                        f"Error in row: {value_row}, cell at column {i} is expected to be type {data_type}, found {type(cell).__name__}"
+                        f"Error adding row: {value_row}, cell at column {i} is expected to be type {data_type}, found {type(cell).__name__}"
                     )
             insert_row[index_map[i]] = cell
 
@@ -233,6 +256,7 @@ def delete_rows(table_name, filter_func=lambda x: True):
 
 def update_rows(table_name, *column_value_pairs, filter_func=lambda x: True):
     table = load_table(table_name)
+    types = table[1]
 
     column_idx_value_pairs = [
         (table[0].index(column), value) for column, value in column_value_pairs
@@ -243,6 +267,16 @@ def update_rows(table_name, *column_value_pairs, filter_func=lambda x: True):
             continue
 
         for column_idx, value in column_idx_value_pairs:
+            expected_type = types[column_idx]
+
+            if type(value).__name__ != expected_type:
+                try:
+                    value = eval(expected_type)(value)  # Attempt to convert value
+                except ValueError:
+                    raise ValueError(
+                        f"Error updating row: {row}, cell at column {column_idx} is expected to be type {expected_type}, found {type(value).__name__}"
+                    )
+
             row[column_idx] = value
 
     dump_table(table_name, table)
@@ -314,11 +348,13 @@ def add_book():
     title, author, isbn = prompt_inputs("Title", "Author", "ISBN")
 
     if not isbn.isdigit():
-        global log_message
-        log_message = "ISBN should be a number, please try again"
-        add_book()
+        print_log("ISBN should be a number, please try again")
+        return add_book()
 
-    create_book(title, author, isbn)
+    create_book(title, author, int(isbn))
+
+    print_log(f"Book [{isbn}]{title} successfully created")
+    return back()
 
 
 @menu
@@ -331,20 +367,21 @@ def remove_book():
         titles,
         [option_value(i) for i in range(len(titles))],
         page_title="Select a book to delete",
+        error_function=log_and_redirect(
+            back, "Book delete operation cancelled, invalid option"
+        ),
     )
 
     book_id = ids[result]
     book_title = titles[result]
 
-    global log_message
-
     if prompt_yes_no(f"Delete book <<{book_title}>>?"):
         delete_rows(BOOKS_TABLE, where_equal(("id", book_id)))
-        log_message = f"Deleted book {book_title}"
+        print_log(f"Deleted book {book_title}")
         return back()
 
     else:
-        log_message = "Book delete operation cancelled"
+        print_log("Book delete operation cancelled")
         return back()
 
 
@@ -353,14 +390,68 @@ def modify_book():
     books = load_table(BOOKS_TABLE)
     titles = get_column_by_name(books, "title")[2:]
     ids = get_column_by_name(books, "id")[2:]
-
-    modifiable_columns = get_column_by_name(filter_columns(books, ""))
+    isbns = get_column_by_name(books, "isbn")[2:]
 
     result = paginator(
         titles,
         [option_value(i) for i in range(len(titles))],
         page_title="Select a book to modify",
+        error_function=log_and_redirect(
+            back, "Book modification cancelled, invalid option"
+        ),
     )
+
+    book_id = ids[result]
+    book_title = titles[result]
+    book_isbn = isbns[result]
+
+    clear_screen()
+
+    print(f"Modifying  [{book_isbn}]<<{book_title}>>")
+    print("Which field would you like to modify?")
+
+    modifiable_fields = ["title", "author", "isbn", "quantity"]
+    field_idx = prompt_options(
+        ["Title", "Author", "ISBN", "Quantity", "Cancel"],
+        [option_value(i) for i in range(len(modifiable_fields))]
+        + [log_and_redirect(back, "Book modification cancelled")],
+        error_function=log_and_redirect(
+            back, "Book modification cancelled, invalid option"
+        ),
+    )
+    field = modifiable_fields[field_idx]
+
+    field_text = ("title", "author", "ISBN", "quantity")[field_idx]
+
+    old_value = get_column_by_name(books, field)[result + 2]
+
+    clear_screen()
+
+    new_value = (
+        input(
+            f"Current book {field_text}: {old_value}\n"
+            f"Enter new value (leave blank to keep current value): "
+        )
+        or old_value
+    )
+
+    expected_type = get_column_by_name(books, field)[1]
+
+    try:
+        new_value = eval(expected_type)(new_value)
+    except ValueError:
+        print_log(
+            f"Invalid value, field '{field_text}' is expected to be {expected_type}"
+        )
+        return modify_book()
+
+    update_rows(
+        BOOKS_TABLE, (field, new_value), filter_func=where_equal(("id", book_id))
+    )
+
+    print_log(f"Successfully modified\n{old_value} -> {new_value}")
+
+    return back()
 
 
 @menu
@@ -394,7 +485,7 @@ def home_menu():
 
 @menu
 def login_menu():
-    global username, role, log_message
+    global username, role
     username = input("Username: ")
     password = getpass()
 
@@ -404,14 +495,14 @@ def login_menu():
     )
 
     if is_empty(user):
-        log_message = "Login failed, invalid credentials, please try again."
+        print_log("Login failed, invalid credentials, please try again.")
         return login_menu()
 
     username = get_column_by_name(user, "username")[-1]
     role = get_column_by_name(user, "role")[-1]
 
-    log_message = (
-        f"[{roles[role]}]{username}, welcome to the LMS (Ligma Management System)\n"
+    print_log(
+        f"[{roles[role]}] {username}, welcome to the LMS (Ligma Management System)\n"
         + """
             _     _                       
             | |   (_) __ _ _ __ ___   __ _ 
@@ -457,7 +548,7 @@ if __name__ == "__main__":
     #     ("id", "password", "username", "passsword"),
     #     (123123, "psasdsadas", "Ali", 3),
     # )
-    table = load_table("test")
+    # table = load_table("test")
 
     # filtered = filter_rows(table, where_equal(("username", "Bob")))
     # print_table(filtered)
