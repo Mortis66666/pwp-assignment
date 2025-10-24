@@ -1,3 +1,23 @@
-id,title,author,isbn,availability,due_date,borrower
-int,str,str,int,int,int,int
-1,The Sign of Four,Sir Arthur Conan Doyle,9781523855780,1,0,0
+id,title,author,isbn,quantity
+int,str,str,int,int
+1,The Sign of Four,Sir Arthur Conan Doyle,9781523855780,15
+3,To Kill a Mockingbird,Harper Lee,9780061120084,12
+4,1984,George Orwell,9780451524935,8
+5,Pride and Prejudice,Jane Austen,9781503290563,10
+6,The Great Gatsby,F. Scott Fitzgerald,9780743273565,7
+7,Moby Dick,Herman Melville,9781503280786,5
+8,War and Peace,Leo Tolstoy,9781420958612,4
+9,Crime and Punishment,Fyodor Dostoevsky,9780486415871,6
+10,The Catcher in the Rye,J.D. Salinger,9780316769488,9
+11,Brave New World,Aldous Huxley,9780060850524,11
+12,The Hobbit,J.R.R. Tolkien,9780547928227,14
+13,The Odyssey,Homer,9780140268867,3
+14,Frankenstein,Mary Shelley,9780486282114,6
+15,Dracula,Bram Stoker,9780486411095,8
+16,Jane Eyre,Charlotte Brontë,9781503278196,10
+17,The Adventures of Huckleberry Finn,Mark Twain,9780486280615,9
+18,Les Miserables,Victor Hugo,9780451419439,5
+19,The Picture of Dorian Gray,Oscar Wilde,9780141439570,7
+20,Wuthering Heights,Emily Brontë,9780141439556,6
+21,The Count of Monte Cristo,Alexandre Dumas,9780140449266,13
+22,Animal Farm,George Orwell,9780451526342,10

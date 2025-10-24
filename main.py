@@ -1,4 +1,5 @@
 import os
+import math
 from getpass import getpass
 
 # Role identifiers
@@ -16,9 +17,6 @@ BOOKS_TABLE = "books"
 username = "Anonymous"
 role = -1
 
-username = "Bob"
-role = ADMIN
-
 log_message = ""
 history = []
 
@@ -30,9 +28,13 @@ def exception_quit(e):
     exit()
 
 
+def clear_screen():
+    os.system("cls" if os.name == "nt" else "clear")
+
+
 def menu(func):
     def wrapper(*args, **kwargs):
-        os.system("cls" if os.name == "nt" else "clear")
+        clear_screen()
 
         global log_message, history
 
@@ -51,6 +53,10 @@ def option_value(x):
     return lambda: x
 
 
+def prompt_yes_no(prompt):
+    return input(f"{prompt} (Y/N): ").lower() == "y"
+
+
 def prompt_options(option_texts, option_functions, error_function=exception_quit):
     try:
         print(
@@ -61,6 +67,47 @@ def prompt_options(option_texts, option_functions, error_function=exception_quit
         return option_functions[int(input("Enter option: ") or 1) - 1]()
     except Exception as e:
         return error_function(e)
+
+
+def paginator(
+    option_texts: list,
+    option_functions: list,
+    page_index=0,
+    page_title="",
+    max_per_page=10,
+):
+    total_options = len(option_texts)
+    total_page = math.ceil(total_options / max_per_page)
+
+    page_options = option_texts[
+        page_index * max_per_page : page_index * max_per_page + max_per_page
+    ]
+    page_functions = option_functions[
+        page_index * max_per_page : page_index * max_per_page + max_per_page
+    ]
+
+    def previous_page():
+        return paginator(
+            option_texts, option_functions, page_index - 1, page_title, max_per_page
+        )
+
+    def next_page():
+        return paginator(
+            option_texts,
+            option_functions,
+            page_index + 1 if page_index < total_page - 1 else 0,
+            page_title,
+            max_per_page,
+        )
+
+    clear_screen()
+    print(page_title)
+    print(f"Page {page_index + 1}/{total_page}")
+
+    return prompt_options(
+        [*page_options, "Previous page", "Next page", "Back to menu"],
+        [*page_functions, previous_page, next_page, back],
+    )
 
 
 def prompt_inputs(*prompts, types=None):
@@ -83,7 +130,7 @@ def back(skip_repeat=True):
     if not history:
         raise Exception("No history to back")
 
-    return history[-1]()
+    return menu(history[-1])()
 
 
 # File functions
@@ -147,8 +194,6 @@ def print_table(table, padding=0):
 
 def add_rows(table_name, columns, *value_rows):
     first_row, types, *data_rows = load_table(table_name)
-    print(load_table(table_name))
-    print(types)
 
     if len(first_row) != len(columns):
         raise Exception(
@@ -182,7 +227,7 @@ def delete_rows(table_name, filter_func=lambda x: True):
     first_row, types, *data_rows = load_table(table_name)
 
     new_rows = [row for row in data_rows if not filter_func([first_row, types, row])]
-    dump_table([first_row, types, *new_rows])
+    dump_table(table_name, [first_row, types, *new_rows])
 
 
 def update_rows(table_name, *column_value_pairs, filter_func=lambda x: True):
@@ -226,6 +271,10 @@ def where_equal(*column_value_pairs):
     return inner
 
 
+def is_empty(table):
+    return len(table) == 2  # Empty if table only contains first two row
+
+
 # User table functions
 def create_user(username, password, role=MEMBER):
     users = load_table(USERS_TABLE)
@@ -254,8 +303,8 @@ def create_book(title, author, isbn, quantity=1):
 @menu
 def book_management():
     return prompt_options(
-        ["Add new books", "Remove books", "Modify books"],
-        [add_book, remove_book, modify_book],
+        ["Add new books", "Remove books", "Modify books", "Back"],
+        [add_book, remove_book, modify_book, back],
     )
 
 
@@ -263,10 +312,39 @@ def book_management():
 def add_book():
     title, author, isbn = prompt_inputs("Title", "Author", "ISBN")
 
+    if not isbn.isdigit():
+        global log_message
+        log_message = "ISBN should be a number, please try again"
+        add_book()
+
+    create_book(title, author, isbn)
+
 
 @menu
 def remove_book():
-    pass
+    books = load_table(BOOKS_TABLE)
+    titles = get_column_by_name(books, "title")[2:]
+    ids = get_column_by_name(books, "id")[2:]
+
+    result = paginator(
+        titles,
+        [option_value(i) for i in range(len(titles))],
+        page_title="Select a book to delete",
+    )
+
+    book_id = ids[result]
+    book_title = titles[result]
+
+    global log_message
+
+    if prompt_yes_no(f"Delete book <<{book_title}>>?"):
+        delete_rows(BOOKS_TABLE, where_equal(("id", book_id)))
+        log_message = f"Deleted book {book_title}"
+        return back()
+
+    else:
+        log_message = "Book delete operation cancelled"
+        return back()
 
 
 @menu
@@ -309,7 +387,7 @@ def login_menu():
         table, where_equal(("username", username), ("password", password))
     )
 
-    if len(user) == 2:
+    if is_empty(user):
         log_message = "Login failed, invalid credentials, please try again."
         return login_menu()
 
@@ -338,7 +416,7 @@ def user_menu():
     # TODO add options for each user
     match role:
         case 0:  # Admin
-            menu_options = []
+            menu_options = [("Book Management", book_management)]
         case 1:  # Staff
             menu_options = [("Search Users", search_menu)]
         case 2:  # Member
@@ -353,16 +431,16 @@ def user_menu():
 
 if __name__ == "__main__":
     # print((user_menu("Bob", ADMIN)))
-    # home_menu()
+    home_menu()
 
     # add_rows(
     #     "test",
     #     ("id", "password", "username", "passsword"),
     #     (123123, "psasdsadas", "Ali", 3),
     # )
-    table = load_table("test")
+    # table = load_table("test")
     # filtered = filter_rows(table, where_equal(("username", "Bob")))
-    print_table(table)
+    # print_table(filtered)
 
     # update_rows(
     #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
