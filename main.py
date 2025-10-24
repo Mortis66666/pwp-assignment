@@ -58,7 +58,11 @@ def prompt_yes_no(prompt):
     return input(f"{prompt} (Y/N): ").lower() == "y"
 
 
-def prompt_options(option_texts, option_functions, error_function=exception_quit):
+def prompt_options(option_texts, option_functions=None, error_function=exception_quit):
+    option_functions = option_functions or [
+        option_value(i) for i in range(len(option_texts))
+    ]
+
     try:
         print(
             *[f"[{i}] {option_text}" for i, option_text in enumerate(option_texts, 1)],
@@ -478,7 +482,56 @@ def modify_book():
 
 @menu
 def user_management():
-    pass
+    return prompt_options(
+        ["Add new user", "Remove user", "Back"],
+        [add_user, remove_user, back],
+    )
+
+
+@menu
+def add_user():
+    print("What kind of user would you like to create?")
+    user_role = prompt_options(
+        ["Staff", "Member"], [option_value(STAFF), option_value(MEMBER)]
+    )
+
+    clear_screen()
+
+    username = input("Username: ")
+    password = getpass()
+
+    create_user(username, password, user_role)
+
+    print_log(f"User [{roles[user_role]}] {username} successfully created")
+    return back()
+
+
+@menu
+def remove_user():
+    users = load_table(USERS_TABLE)
+    usernames = get_column_by_name(users, "username")[2:]
+    ids = get_column_by_name(users, "id")[2:]
+
+    result = paginator(
+        usernames,
+        [option_value(i) for i in range(len(usernames))],
+        page_title="Select a user to delete",
+        error_function=log_and_redirect(
+            back, "User delete operation cancelled, invalid option"
+        ),
+    )
+
+    user_id = ids[result]
+    user_name = usernames[result]
+
+    if prompt_yes_no(f"Delete user <<{user_name}>>?"):
+        delete_rows(USERS_TABLE, where_equal(("id", user_id)))
+        print_log(f"Deleted user {user_name}")
+        return back()
+
+    else:
+        print_log("User delete operation cancelled")
+        return back()
 
 
 # Staff features

@@ -1,3 +1,4 @@
 id,username,password,role
 int,str,str,int
 1,root,toor,0
+2,Jack,123,1
