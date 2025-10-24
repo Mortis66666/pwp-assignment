@@ -25,6 +25,7 @@ history = []
 # Helper functions
 def exception_quit(e):
     print(f"Error: {e}")
+    # raise e
     input("Press enter to quit...")
     exit()
 
@@ -71,7 +72,10 @@ def prompt_options(option_texts, option_functions=None, error_function=exception
 
         return option_functions[int(input("Enter option: ") or 1) - 1]()
     except Exception as e:
-        return error_function(e)
+        try:
+            return error_function(e)
+        except TypeError:
+            return error_function()
 
 
 def paginator(
@@ -79,7 +83,7 @@ def paginator(
     option_functions: list,
     page_index=0,
     page_title="",
-    max_per_page=10,
+    max_per_page=6,
     cancel_function=None,
     error_function=exception_quit,
 ):
@@ -95,7 +99,13 @@ def paginator(
 
     def previous_page():
         return paginator(
-            option_texts, option_functions, page_index - 1, page_title, max_per_page
+            option_texts,
+            option_functions,
+            page_index - 1 if page_index > 0 else total_page - 1,
+            page_title,
+            max_per_page,
+            cancel_function=cancel_function,
+            error_function=error_function,
         )
 
     def next_page():
@@ -105,6 +115,8 @@ def paginator(
             page_index + 1 if page_index < total_page - 1 else 0,
             page_title,
             max_per_page,
+            cancel_function=cancel_function,
+            error_function=error_function,
         )
 
     clear_screen()
