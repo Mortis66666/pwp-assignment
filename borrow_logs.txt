@@ -1,0 +1,2 @@
+id,borrower_id,book_id,due_date
+int,int,int,int
