@@ -598,7 +598,7 @@ def search_menu():
     sel_isbn = isbns[selection]
     sel_qty = quantities[selection]
 
-  # show selected book details
+  # Show selected book details
     clear_screen()
     print("Book details")
     print_divider([20, 40])
@@ -609,8 +609,33 @@ def search_menu():
     print_row(["ISBN", str(sel_isbn)], [20, 40])
     print_row(["Quantity", str(sel_qty)], [20, 40])
 
-    input("Press Enter to return...")
-    return back()
+    # Allow staff to issue new quantity of books
+    def do_issue_quantity():
+        try:
+            qty_inp = int(input("Enter a quantity to issue new books (positive integer): ").strip())
+            if qty_inp <= 0:
+                raise ValueError()
+        except Exception:
+            print_log("Invalid quantity entered. Operation cancelled.")
+            return search_menu()
+
+        new_qty = int(sel_qty) + qty_inp
+        update_rows(
+            BOOKS_TABLE,
+            ("quantity", new_qty),
+            filter_func=where_equal(("id", sel_id)),
+        )
+
+        print_log(f"Added {qty_inp} to [{sel_isbn}] {sel_title}. New qty: {new_qty}")
+        return back()
+
+    issue_option = prompt_options(
+        ["Add quantity", "Back"],
+        [do_issue_quantity, back],
+        error_function=log_and_redirect(back, "Action cancelled, invalid option"),
+    )
+
+    return issue_option
 
 # Member features
 # TODO
