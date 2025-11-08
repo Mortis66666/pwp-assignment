@@ -614,7 +614,7 @@ def search_menu():
         try:
             qty_inp = int(input("Enter a quantity to issue new books (positive integer): ").strip())
             if qty_inp <= 0:
-                raise ValueError()
+                raise ValueError("Amount must be a positive integer")
         except Exception:
             print_log("Invalid quantity entered. Operation cancelled.")
             return search_menu()
@@ -637,6 +637,92 @@ def search_menu():
 
     return issue_option
 
+@menu
+def issued_report():
+    # Display a report of all currently issued books with borrower and due date info.
+    import datetime
+
+    logs = load_table(BORROW_LOGS)
+    if is_empty(logs):
+        print_log("No books are currently issued.")
+        return back()
+
+    users = load_table(USERS_TABLE)
+    books = load_table(BOOKS_TABLE)
+    today = int(datetime.date.today().strftime("%Y%m%d"))
+
+    options, metas = [], []
+    for log in logs[2:]:
+        log_tbl = [logs[0], logs[1], log]
+        loan_id = get_column_by_name(log_tbl, "id")[-1]
+        borrower_id = get_column_by_name(log_tbl, "borrower_id")[-1]
+        book_id = get_column_by_name(log_tbl, "book_id")[-1]
+        due = get_column_by_name(log_tbl, "due_date")[-1]
+
+        uname_tbl = filter_rows(users, where_equal(("id", borrower_id)))
+        uname = get_column_by_name(uname_tbl, "username")[-1] if not is_empty(uname_tbl) else str(borrower_id)
+
+        book_tbl = filter_rows(books, where_equal(("id", book_id)))
+        btitle = get_column_by_name(book_tbl, "title")[-1] if not is_empty(book_tbl) else str(book_id)
+        bqty = None if is_empty(book_tbl) else get_column_by_name(book_tbl, "quantity")[-1]
+
+        due_format = str(due)
+        try:
+            s = str(int(due))
+            if len(s) == 8:
+                due_format = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+        except Exception:
+            pass
+        
+        overdue = False
+        try:
+            overdue = int(due) < today
+        except Exception:
+            pass
+
+        options.append(f"[{loan_id}] {btitle} -> {uname} (Due: {due_format}) {'Overdue' if overdue else 'Due'} (Qty:{bqty})")
+        metas.append((loan_id, book_id, bqty))
+
+    sel = paginator(
+        options,
+        [option_value(i) for i in range(len(options))],
+        page_title="Issued books (select to act)",
+        error_function=log_and_redirect(back, "Issued report cancelled, invalid option"),
+    )
+
+    loan_id, book_id, book_qty = metas[sel]
+
+    clear_screen()
+    print("Loan selected")
+    print_divider([12, 40])
+    print_row(["Field", "Value"], [12, 40])
+    print_row(["Loan ID", str(loan_id)], [12, 40])
+    print_row(["Book ID", str(book_id)], [12, 40])
+    print_row(["Due Date", str(due)], [12, 40])
+
+    def mark_returned():
+        # remove the borrow log
+        delete_rows(BORROW_LOGS, where_equal(("id", loan_id)))
+        # increment book quantity if we can read it
+        if book_qty is not None:
+            try:
+                new_q = int(book_qty) + 1
+                update_rows(BOOKS_TABLE, ("quantity", new_q), filter_func=where_equal(("id", book_id)))
+            except Exception:
+                pass
+        print_log(f"Loan {loan_id} marked returned. Book [{book_id}] quantity updated.")
+        return back()
+
+    def keep_not_returned():
+        print_log(f"Loan {loan_id} kept as not returned.")
+        return back()
+
+    return prompt_options(
+        ["Mark returned", "Keep (not returned)", "Back"],
+        [mark_returned, keep_not_returned, back],
+        error_function=log_and_redirect(back, "Action cancelled, invalid option"),
+    )
+    
 # Member features
 # TODO
 
@@ -698,7 +784,10 @@ def user_menu():
                 ("User Management", user_management),
             ]
         case 1:  # Staff
-            menu_options = [("Search Book", search_menu)]
+            menu_options = [
+                ("Search Book", search_menu),
+                ("Issued Books Report", issued_report)
+            ]
         case 2:  # Member
             menu_options = []
         case -1:  # Guest
