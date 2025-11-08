@@ -549,10 +549,68 @@ def remove_user():
 # Staff features
 @menu
 def search_menu():
-    query = input("Enter search query: ")
-    # TODO search for users and display results
-    pass
+    books = load_table(BOOKS_TABLE)
+    
+    # Let staff choose which field to search by
+    field = prompt_options(
+        ["Title", "Author", "ISBN", "Back"],
+        [option_value("title"), option_value("author"), option_value("isbn"), back],
+        error_function=log_and_redirect(back, "Search cancelled, invalid option"),
+    )
+    query = input(
+        "Enter search query (partial match, case-insensitive). Leave blank to list all: "
+    ).strip().lower()
 
+    def filter_func(table_row):
+        if query == "":
+            return True
+        cell_value = get_column_by_name(table_row, field)[-1]
+        return query in str(cell_value).lower()
+
+    results = filter_rows(books, filter_func)
+
+    if is_empty(results):
+        print_log("No books matched your search.")
+        return back()
+
+    ids = get_column_by_name(results, "id")[2:]
+    titles = get_column_by_name(results, "title")[2:]
+    authors = get_column_by_name(results, "author")[2:]
+    isbns = get_column_by_name(results, "isbn")[2:]
+    quantities = get_column_by_name(results, "quantity")[2:]
+
+    option_texts = [
+        f"[{isbns[i]}] {titles[i]} — {authors[i]} (Qty: {quantities[i]})"
+        for i in range(len(titles))
+    ]
+    option_funcs = [option_value(i) for i in range(len(option_texts))]
+
+    selection = paginator(
+        option_texts,
+        option_funcs,
+        page_title=f"Search results for '{query or 'ALL'}' in {field.title()}",
+        error_function=log_and_redirect(back, "Search cancelled, invalid option"),
+    )
+
+    sel_id = ids[selection]
+    sel_title = titles[selection]
+    sel_author = authors[selection]
+    sel_isbn = isbns[selection]
+    sel_qty = quantities[selection]
+
+  # show selected book details
+    clear_screen()
+    print("Book details")
+    print_divider([20, 40])
+    print_row(["Field", "Value"], [20, 40])
+    print_row(["ID", str(sel_id)], [20, 40])
+    print_row(["Title", sel_title], [20, 40])
+    print_row(["Author", sel_author], [20, 40])
+    print_row(["ISBN", str(sel_isbn)], [20, 40])
+    print_row(["Quantity", str(sel_qty)], [20, 40])
+
+    input("Press Enter to return...")
+    return back()
 
 # Member features
 # TODO
@@ -615,7 +673,7 @@ def user_menu():
                 ("User Management", user_management),
             ]
         case 1:  # Staff
-            menu_options = [("Search Users", search_menu)]
+            menu_options = [("Search Book", search_menu)]
         case 2:  # Member
             menu_options = []
         case -1:  # Guest
