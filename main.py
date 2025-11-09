@@ -26,7 +26,6 @@ history = []
 def menu_title(title):
     def decorator(func):
         def wrapper():
-            clear_screen()
             width = len(title) + 2
             border = "+" + "-" * width + "+"
             print(f"{border}\n| {title} |\n{border}")
