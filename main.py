@@ -734,6 +734,9 @@ def issued_report():
 # Home menu
 @menu
 def home_menu():
+    print_divider([43])
+    print ("   Ligma Management System (LMS) Main Menu  ")
+    print_divider([43])
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
