@@ -753,6 +753,7 @@ def get_user_id(username):
 
 @menu
 def search_book():
+    menu_title("Search Books")(lambda: None)()
     books = load_table(BOOKS_TABLE)
     if is_empty(books):
         print_log("There are currently no books available")
