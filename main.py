@@ -805,7 +805,7 @@ def user_menu():
         case 1:  # Staff
             menu_title("Ligma Management System (LMS) Staff Menu")(lambda: None)()
             menu_options = [
-                ("Search Book", search_menu),
+                ("Search Books", search_menu),
                 ("Issued Books Report", issued_report)
             ]
         case 2:  # Member
