@@ -23,6 +23,20 @@ history = []
 
 
 # Helper functions
+def menu_title(title):
+    def decorator(func):
+        def wrapper():
+            clear_screen()
+            width = len(title) + 2
+            border = "+" + "-" * width + "+"
+            print(f"{border}\n| {title} |\n{border}")
+            return func()
+        
+        return wrapper
+    
+    return decorator
+
+
 def exception_quit(e):
     print(f"Error: {e}")
     # raise e
@@ -375,6 +389,7 @@ def create_book(title, author, isbn, quantity=1):
 # Admin features
 @menu
 def book_management():
+    menu_title("Book Management")(lambda: None)()
     return prompt_options(
         ["Add new books", "Remove books", "Modify books", "Back"],
         [add_book, remove_book, modify_book, back],
@@ -494,6 +509,7 @@ def modify_book():
 
 @menu
 def user_management():
+    menu_title("User Management")(lambda: None)()
     return prompt_options(
         ["Add new user", "Remove user", "Back"],
         [add_user, remove_user, back],
@@ -549,6 +565,7 @@ def remove_user():
 # Staff features
 @menu
 def search_menu():
+    menu_title("Search Menu")(lambda: None)()
     books = load_table(BOOKS_TABLE)
     
     # Let staff choose which field to search by
@@ -734,9 +751,7 @@ def issued_report():
 # Home menu
 @menu
 def home_menu():
-    print_divider([43])
-    print ("   Ligma Management System (LMS) Main Menu  ")
-    print_divider([43])
+    menu_title("Ligma Management System (LMS) Main Menu")(lambda: None)()
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
@@ -783,18 +798,22 @@ def user_menu():
     # TODO add options for each user
     match role:
         case 0:  # Admin
+            menu_title("Ligma Management System (LMS) Admin Menu")(lambda: None)()
             menu_options = [
                 ("Book Management", book_management),
                 ("User Management", user_management),
             ]
         case 1:  # Staff
+            menu_title("Ligma Management System (LMS) Staff Menu")(lambda: None)()
             menu_options = [
                 ("Search Book", search_menu),
                 ("Issued Books Report", issued_report)
             ]
         case 2:  # Member
+            menu_title("Ligma Management System (LMS) Member Menu")(lambda: None)()
             menu_options = []
         case -1:  # Guest
+            menu_title("Ligma Management System (LMS) Guest Menu")(lambda: None)()
             menu_options = []
 
     menu_options.append(["Logout", home_menu])
