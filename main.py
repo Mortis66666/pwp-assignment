@@ -952,7 +952,101 @@ def view_borrow_history():
     return back()
 
 # Guest features
-# TODO
+# Guest features
+@menu
+def guest_search_books():
+    """
+    Allows guests to search for books by title or author and check availability.
+    Assumptions:
+    - Guests can only view books; no login or borrowing is allowed.
+    - Availability is determined by quantity > 0.
+    - If no books match the search, an informative message is shown.
+    """
+
+    menu_title("Guest Search & Availability")(lambda: None)()
+    books = load_table(BOOKS_TABLE)
+
+    if is_empty(books):
+        print_log("No books are available in the library at the moment.")
+        return back()
+
+    # Choose search field (title or author)
+    field = prompt_options(
+        ["Title", "Author", "Back"],
+        [option_value("title"), option_value("author"), back],
+        error_function=log_and_redirect(back, "Search cancelled, invalid option"),
+    )
+
+    query = input("Enter your search keyword (leave blank to list all): ").strip().lower()
+
+    def filter_func(table_row):
+        if query == "":
+            return True
+        cell_value = get_column_by_name(table_row, field)[-1]
+        return query in str(cell_value).lower()
+
+    results = filter_rows(books, filter_func)
+
+    if is_empty(results):
+        print_log("No books matched your search criteria.")
+        return back()
+
+    titles = get_column_by_name(results, "title")[2:]
+    authors = get_column_by_name(results, "author")[2:]
+    quantities = get_column_by_name(results, "quantity")[2:]
+
+    # Build results with availability status
+    options = [
+        f"{titles[i]} — {authors[i]} | Status: {'Available' if int(quantities[i]) > 0 else 'Unavailable'}"
+        for i in range(len(titles))
+    ]
+
+    paginator(
+        options,
+        [back] * len(options),
+        page_title=f"Search results for '{query or 'ALL'}' in {field.title()}",
+        cancel_function=back,
+        error_function=log_and_redirect(back, "Invalid option"),
+    )
+
+    return back()
+
+
+@menu
+def guest_view_catalog():
+    """
+    Displays the entire library catalog for guests.
+    Assumptions:
+    - All books from books.txt are displayed.
+    - Availability is determined by the quantity column (> 0 = Available).
+    - The table includes book title, author, and status.
+    """
+
+    menu_title("Library Catalog (Guest View)")(lambda: None)()
+    books = load_table(BOOKS_TABLE)
+
+    if is_empty(books):
+        print_log("The library catalog is currently empty.")
+        return back()
+
+    titles = get_column_by_name(books, "title")[2:]
+    authors = get_column_by_name(books, "author")[2:]
+    quantities = get_column_by_name(books, "quantity")[2:]
+
+    clear_screen()
+    print_divider([30, 25, 15])
+    print_row(["Title", "Author", "Status"], [30, 25, 15])
+    print_divider([30, 25, 15])
+
+    for i in range(len(titles)):
+        status = "Available" if int(quantities[i]) > 0 else "Unavailable"
+        print_row([titles[i], authors[i], status], [30, 25, 15])
+
+    input("\nPress Enter to return to the Guest Menu...")
+    return back()
+
+
+
 
 
 # Home menu
@@ -1024,7 +1118,12 @@ def user_menu():
             ]
         case -1:  # Guest
             menu_title("Ligma Management System (LMS) Guest Menu")(lambda: None)()
-            menu_options = []
+            menu_options = [
+                ("Search Books & Check Availability", guest_search_books),
+                ("View Entire Book Catalog", guest_view_catalog),
+                ("Login / Register", home_menu)
+            ]
+
 
     menu_options.append(["Logout", home_menu])
 
