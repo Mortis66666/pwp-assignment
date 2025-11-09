@@ -681,7 +681,7 @@ def issued_report():
             pass
 
         options.append(f"[{loan_id}] {btitle} -> {uname} (Due: {due_format}) {'Overdue' if overdue else 'Due'} (Qty:{bqty})")
-        metas.append((loan_id, book_id, bqty))
+        metas.append((loan_id, book_id, bqty, due_format))
 
     sel = paginator(
         options,
@@ -690,7 +690,7 @@ def issued_report():
         error_function=log_and_redirect(back, "Issued report cancelled, invalid option"),
     )
 
-    loan_id, book_id, book_qty = metas[sel]
+    loan_id, book_id, book_qty, due_format = metas[sel]
 
     clear_screen()
     print("Loan selected")
@@ -698,16 +698,17 @@ def issued_report():
     print_row(["Field", "Value"], [12, 40])
     print_row(["Loan ID", str(loan_id)], [12, 40])
     print_row(["Book ID", str(book_id)], [12, 40])
-    print_row(["Due Date", str(due)], [12, 40])
+    print_row(["Due Date", str(due_format)], [12, 40])
 
     def mark_returned():
         # remove the borrow log
         delete_rows(BORROW_LOGS, where_equal(("id", loan_id)))
-        # increment book quantity if we can read it
+        
+        # increment book quantity after marking returned
         if book_qty is not None:
             try:
-                new_q = int(book_qty) + 1
-                update_rows(BOOKS_TABLE, ("quantity", new_q), filter_func=where_equal(("id", book_id)))
+                new_qt = int(book_qty) + 1
+                update_rows(BOOKS_TABLE, ("quantity", new_qt), filter_func=where_equal(("id", book_id)))
             except Exception:
                 pass
         print_log(f"Loan {loan_id} marked returned. Book [{book_id}] quantity updated.")
