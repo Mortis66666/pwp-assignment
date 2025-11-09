@@ -1121,7 +1121,6 @@ def user_menu():
             menu_options = [
                 ("Search Books & Check Availability", guest_search_books),
                 ("View Entire Book Catalog", guest_view_catalog),
-                ("Login / Register", home_menu)
             ]
 
 
