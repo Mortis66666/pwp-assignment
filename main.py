@@ -741,7 +741,214 @@ def issued_report():
     )
     
 # Member features
-# TODO
+import datetime
+
+def get_user_id(username):
+    users = load_table(USERS_TABLE)
+    filtered = filter_rows(users, where_equal(("username", username)))
+    if is_empty(filtered):
+        return None
+    return get_column_by_name(filtered, "id")[-1]
+
+
+@menu
+def search_book():
+    books = load_table(BOOKS_TABLE)
+    if is_empty(books):
+        print_log("There are currently no books available")
+        return back()
+        
+    error_function = log_and_redirect(back, "Search cancelled, invalid option")
+
+    # Let member choose search field
+    field = prompt_options(
+        ["Title", "Author", "ISBN", "Back"],
+        [option_value("title"), option_value("author"), option_value("isbn"), back],
+        error_function=error_function,
+    )
+    
+    if field == back:
+        return back()
+        
+    query = input(
+        "Enter search query (partial match, case-insensitive). Leave blank to list all: "
+    ).strip().lower()
+
+    def filter_func(table_row):
+        if query == "":
+            return True
+        cell_value = get_column_by_name(table_row, field)[-1]
+        return query in str(cell_value).lower()
+
+    results = filter_rows(books, filter_func)
+
+    if is_empty(results):
+        print_log("No books matched your search")
+        return back()
+
+    ids = get_column_by_name(results, "id")[2:]
+    titles = get_column_by_name(results, "title")[2:]
+    authors = get_column_by_name(results, "author")[2:]
+    isbns = get_column_by_name(results, "isbn")[2:]
+    quantities = get_column_by_name(results, "quantity")[2:]
+
+    option_texts = [
+        f"[{isbns[i]}] {titles[i]} — {authors[i]} (Qty: {quantities[i]})"
+        for i in range(len(titles))
+    ]
+    option_funcs = [option_value(i) for i in range(len(option_texts))]
+
+    selection = paginator(
+        option_texts,
+        option_funcs,
+        page_title=f"Search results for '{query or 'ALL'}' in {field.title()}",
+        error_function=error_function,
+    )
+
+    sel_id = ids[selection]
+    sel_title = titles[selection]
+    sel_isbn = isbns[selection]
+    sel_qty = quantities[selection]
+
+    # Book Details
+    clear_screen()
+    print("Book details")
+    print_divider([20, 40])
+    print_row(["Field", "Value"], [20, 40])
+    print_row(["ID", str(sel_id)], [20, 40])
+    print_row(["Title", sel_title], [20, 40])
+    print_row(["Author", authors[selection]], [20, 40])
+    print_row(["ISBN", str(sel_isbn)], [20, 40])
+    print_row(["Quantity", str(sel_qty)], [20, 40])
+    
+    def do_borrow_book():
+        return borrow_book_core(sel_id, sel_title, sel_qty)
+
+    borrow_option = prompt_options(
+        ["Request Borrow", "Back"],
+        [do_borrow_book, back],
+        error_function=log_and_redirect(back, "Action cancelled, invalid option"),
+    )
+        
+    return borrow_option
+
+
+def borrow_book_core(book_id, book_title, available_qty):
+ 
+    # Check if book is available
+    if available_qty < 1:
+        print_log(f"Sorry, '{book_title}' is currently out of stock")
+        return back()
+
+    user_id = get_user_id(username)
+    if user_id is None:
+        print_log("Error: could not retrieve your user ID")
+        return back()
+    
+    logs = load_table(BORROW_LOGS)
+        
+    # Check if book has already been borrowed by member
+    def check_duplicate_borrow(table_row):
+        book_match = where_equal(("book_id", book_id))
+        user_match = where_equal(("borrower_id", user_id))
+        return where_and(book_match, user_match)(table_row)
+
+    existing_logs = filter_rows(logs, check_duplicate_borrow)
+    
+    if not is_empty(existing_logs):
+        print_log(f"You have already borrowed a copy of '{book_title}'. Please return it first.")
+        return back()
+
+    #  Due date (7 days)
+    borrow_date = datetime.date.today()
+    due_date = borrow_date + datetime.timedelta(days=7)
+    due_date_int = int(due_date.strftime("%Y%m%d"))
+    
+    # New borrow log entry
+    max_log_id = 0
+    if not is_empty(logs) and 'id' in logs[0]:
+        max_log_id = max(get_column_by_name(logs, "id")[2:])
+        
+    new_log_id = max_log_id + 1
+    
+    try:
+        add_rows(
+            BORROW_LOGS,
+            ("id", "borrower_id", "book_id", "due_date"),
+            (new_log_id, user_id, book_id, due_date_int),
+        )
+        
+        # Decrease book quantity
+        new_qty = available_qty - 1
+        update_rows(
+            BOOKS_TABLE,
+            ("quantity", new_qty),
+            filter_func=where_equal(("id", book_id)),
+        )
+        
+        due_date_str = due_date.strftime("%Y-%m-%d")
+        print_log(f"Successfully borrowed '{book_title}'. Due date: {due_date_str}. Remaining copies: {new_qty}")
+
+    except Exception as e:
+        print_log(f"An error occurred during borrowing: {e}")
+
+    return back()
+
+
+@menu
+def view_borrow_history():
+    user_id = get_user_id(username)
+    if user_id is None:
+        print_log("Error: Could not retrieve your user ID.")
+        return back()
+        
+    logs = load_table(BORROW_LOGS)
+    user_logs = filter_rows(logs, where_equal(("borrower_id", user_id)))
+    
+    if is_empty(user_logs):
+        print_log("You have no books currently borrowed.")
+        return back()
+        
+    books = load_table(BOOKS_TABLE)
+    today = int(datetime.date.today().strftime("%Y%m%d"))
+    
+    options = []
+    log_ids, book_ids = [], []
+
+    for log in user_logs[2:]:
+        log_tbl = [user_logs[0], user_logs[1], log]
+        loan_id = get_column_by_name(log_tbl, "id")[-1]
+        book_id = get_column_by_name(log_tbl, "book_id")[-1]
+        due = get_column_by_name(log_tbl, "due_date")[-1]
+
+        book_tbl = filter_rows(books, where_equal(("id", book_id)))
+        btitle = get_column_by_name(book_tbl, "title")[-1] if not is_empty(book_tbl) else f"Book ID: {book_id}"
+
+        due_format = str(due)
+        overdue = False
+        try:
+            s = str(int(due))
+            if len(s) == 8:
+                due_format = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+            overdue = int(due) < today
+        except Exception:
+            pass
+
+        status = "OVERDUE!!!" if overdue else "Currently borrowed :)"
+        
+        options.append(f"[{loan_id}] {btitle} (Due: {due_format}) - {status}")
+        log_ids.append(loan_id)
+        book_ids.append(book_id)
+
+    paginator(
+        options,
+        [back] * len(options), 
+        page_title=f"Borrowed Books for {username}",
+        cancel_function=back,
+        error_function=log_and_redirect(back, "Invalid option"),
+    )
+    
+    return back()
 
 # Guest features
 # TODO
@@ -778,7 +985,7 @@ def login_menu():
     print_log(
         f"[{roles[role]}] {username}, welcome to the LMS (Ligma Management System)\n"
         + """
-            _     _                       
+             _     _                       
             | |   (_) __ _ _ __ ___   __ _ 
             | |   | |/ _` | '_ ` _ \ / _` |
             | |___| | (_| | | | | | | (_| |
@@ -810,7 +1017,10 @@ def user_menu():
             ]
         case 2:  # Member
             menu_title("Ligma Management System (LMS) Member Menu")(lambda: None)()
-            menu_options = []
+            menu_options = [
+                ("Search and Borrow Books", search_book),
+                ("View Borrow History", view_borrow_history)
+            ]
         case -1:  # Guest
             menu_title("Ligma Management System (LMS) Guest Menu")(lambda: None)()
             menu_options = []
