@@ -1105,7 +1105,9 @@ def guest_view_catalog():
 # Home menu
 @menu
 def home_menu():
-    print_title("Ligma Management System (LMS) Main Menu")
+    print_title(
+        "Library Information & General Management Application (LIGMA) Main Menu"
+    )
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
@@ -1131,14 +1133,16 @@ def login_menu():
     role = get_column_by_name(user, "role")[-1]
 
     print_log(
-        f"[{roles[role]}] {username}, welcome to the LMS (Ligma Management System)\n"
+        f"[{roles[role]}] {username}, welcome to the LIGMA (Library Information & General Management Application)\n"
         + """
-             _     _                       
-            | |   (_) __ _ _ __ ___   __ _ 
-            | |   | |/ _` | '_ ` _ \ / _` |
-            | |___| | (_| | | | | | | (_| |
-            |_____|_|\__, |_| |_| |_|\__,_|
-                    |___/    
+        /$$       /$$$$$$  /$$$$$$  /$$      /$$  /$$$$$$ 
+        | $$      |_  $$_/ /$$__  $$| $$$    /$$$ /$$__  $$
+        | $$        | $$  | $$  \__/| $$$$  /$$$$| $$  \ $$
+        | $$        | $$  | $$ /$$$$| $$ $$/$$ $$| $$$$$$$$
+        | $$        | $$  | $$|_  $$| $$  $$$| $$| $$__  $$
+        | $$        | $$  | $$  \ $$| $$\  $ | $$| $$  | $$
+        | $$$$$$$$ /$$$$$$|  $$$$$$/| $$ \/  | $$| $$  | $$
+        |________/|______/ \______/ |__/     |__/|__/  |__/
         """
     )
 
@@ -1159,25 +1163,33 @@ def user_menu():
 
     match role:
         case 0:  # Admin
-            print_title("Ligma Management System (LMS) Admin Menu")
+            print_title(
+                "Library Information & General Management Application (LIGMA) Admin Menu"
+            )
             menu_options = [
                 ("Book Management", book_management),
                 ("User Management", user_management),
             ]
         case 1:  # Staff
-            print_title("Ligma Management System (LMS) Staff Menu")
+            print_title(
+                "Library Information & General Management Application (LIGMA) Staff Menu"
+            )
             menu_options = [
                 ("Search Books", search_menu),
                 ("Issued Books Report", issued_report),
             ]
         case 2:  # Member
-            print_title("Ligma Management System (LMS) Member Menu")
+            print_title(
+                "Library Information & General Management Application (LIGMA) Member Menu"
+            )
             menu_options = [
                 ("Search and Borrow Books", search_book),
                 ("View Borrow History", view_borrow_history),
             ]
         case -1:  # Guest
-            print_title("Ligma Management System (LMS) Guest Menu")
+            print_title(
+                "Library Information & General Management Application (LIGMA) Guest Menu"
+            )
             menu_options = [
                 ("Search Books & Check Availability", guest_search_books),
                 ("View Entire Book Catalog", guest_view_catalog),
