@@ -542,11 +542,7 @@ def user_management():
 def add_user():
     print("What kind of user would you like to create?")
     user_role = prompt_options(
-        ["Staff", "Member"],
-        [option_value(STAFF), option_value(MEMBER)],
-        error_function=log_and_redirect(
-            back, "User creation cancelled, invalid option"
-        ),
+        ["Staff", "Member"], [option_value(STAFF), option_value(MEMBER)]
     )
 
     clear_screen()
@@ -600,6 +596,9 @@ def remove_user():
 @menu
 @menu_title("Search Menu")
 def search_menu():
+    """
+    Allows admin to search for books by title, author, or ISBN, and issue new quantities.
+    """
     books = load_table(BOOKS_TABLE)
 
     # Let staff choose which field to search by
@@ -624,6 +623,7 @@ def search_menu():
 
     results = filter_rows(books, filter_func)
 
+    # no results found
     if is_empty(results):
         print_log("No books matched your search.")
         return back()
@@ -699,7 +699,9 @@ def search_menu():
 
 @menu
 def issued_report():
-    # Display a report of all currently issued books with borrower and due date info.
+    """
+    Display a report of all currently issued books with borrower and due date info.
+    """
     import datetime
 
     logs = load_table(BORROW_LOGS)
@@ -1122,7 +1124,6 @@ def home_menu():
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
-        error_function=log_and_redirect(home_menu, "Invalid option, please try again."),
     )
 
 
@@ -1210,11 +1211,27 @@ def user_menu():
 
     menu_options.append(("Logout", logout))
 
-    return prompt_options(
-        *zip(*menu_options),
-        error_function=log_and_redirect(user_menu, "Invalid option, please try again."),
-    )
+    return prompt_options(*zip(*menu_options))
 
 
 if __name__ == "__main__":
+    # print((user_menu("Bob", ADMIN)))
     home_menu()
+
+    # add_rows(
+    #     BORROW_LOGS,
+    #     ("id", "password", "username", "passsword"),
+    #     (123123, "psasdsadas", "Ali", 3),
+    # )
+    # table = load_table("test")
+
+    # filtered = filter_rows(table, where_equal(("username", "Bob")))
+    # print_table(filtered)
+
+    # update_rows(
+    #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
+    # )
+
+    # table = load_table("test")
+
+    # print_table(table)
