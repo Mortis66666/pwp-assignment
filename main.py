@@ -416,6 +416,7 @@ def book_management():
 
 
 @menu
+@menu_title("Add New Book")
 def add_book():
     title, author, isbn = prompt_inputs("Title", "Author", "ISBN")
 
@@ -542,7 +543,11 @@ def user_management():
 def add_user():
     print("What kind of user would you like to create?")
     user_role = prompt_options(
-        ["Staff", "Member"], [option_value(STAFF), option_value(MEMBER)]
+        ["Staff", "Member"],
+        [option_value(STAFF), option_value(MEMBER)],
+        error_function=log_and_redirect(
+            back, "User creation cancelled, invalid option"
+        ),
     )
 
     clear_screen()
@@ -1215,23 +1220,4 @@ def user_menu():
 
 
 if __name__ == "__main__":
-    # print((user_menu("Bob", ADMIN)))
     home_menu()
-
-    # add_rows(
-    #     BORROW_LOGS,
-    #     ("id", "password", "username", "passsword"),
-    #     (123123, "psasdsadas", "Ali", 3),
-    # )
-    # table = load_table("test")
-
-    # filtered = filter_rows(table, where_equal(("username", "Bob")))
-    # print_table(filtered)
-
-    # update_rows(
-    #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
-    # )
-
-    # table = load_table("test")
-
-    # print_table(table)
