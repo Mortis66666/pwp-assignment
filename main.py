@@ -409,6 +409,9 @@ def book_management():
     return prompt_options(
         ["Add new books", "Remove books", "Modify books", "Back"],
         [add_book, remove_book, modify_book, back],
+        error_function=log_and_redirect(
+            book_management, "Invalid option, please try again"
+        ),
     )
 
 
@@ -530,7 +533,7 @@ def user_management():
         ["Add new user", "Remove user", "Back"],
         [add_user, remove_user, back],
         error_function=log_and_redirect(
-            back, "User management cancelled, invalid option"
+            user_management, "Invalid option, please try again"
         ),
     )
 
@@ -1205,7 +1208,7 @@ def user_menu():
                 ("Login", login_menu),
             ]
 
-    menu_options.append(["Logout", logout])
+    menu_options.append(("Logout", logout))
 
     return prompt_options(
         *zip(*menu_options),
