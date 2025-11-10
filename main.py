@@ -1112,6 +1112,7 @@ def home_menu():
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
+        error_function=log_and_redirect(home_menu, "Invalid option, please try again."),
     )
 
 
@@ -1199,7 +1200,10 @@ def user_menu():
 
     menu_options.append(["Logout", logout])
 
-    return prompt_options(*zip(*menu_options))
+    return prompt_options(
+        *zip(*menu_options),
+        error_function=log_and_redirect(user_menu, "Invalid option, please try again."),
+    )
 
 
 if __name__ == "__main__":
