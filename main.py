@@ -529,6 +529,9 @@ def user_management():
     return prompt_options(
         ["Add new user", "Remove user", "Back"],
         [add_user, remove_user, back],
+        error_function=log_and_redirect(
+            back, "User management cancelled, invalid option"
+        ),
     )
 
 
@@ -536,7 +539,11 @@ def user_management():
 def add_user():
     print("What kind of user would you like to create?")
     user_role = prompt_options(
-        ["Staff", "Member"], [option_value(STAFF), option_value(MEMBER)]
+        ["Staff", "Member"],
+        [option_value(STAFF), option_value(MEMBER)],
+        error_function=log_and_redirect(
+            back, "User creation cancelled, invalid option"
+        ),
     )
 
     clear_screen()
