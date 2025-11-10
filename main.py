@@ -1061,7 +1061,6 @@ def guest_search_books():
         options,
         [back] * len(options),
         page_title=f"Search results for '{query or 'ALL'}' in {field.title()}",
-        cancel_function=back,
         error_function=log_and_redirect(back, "Invalid option"),
     )
 
@@ -1090,13 +1089,13 @@ def guest_view_catalog():
     quantities = get_column_by_name(books, "quantity")[2:]
 
     clear_screen()
-    print_divider([30, 25, 15])
-    print_row(["Title", "Author", "Status"], [30, 25, 15])
-    print_divider([30, 25, 15])
+    print_divider([len(titles)+20, len(authors)+10, 15])
+    print_row(["Title", "Author", "Status"], [len(titles)+20, len(authors)+10, 15])
+    print_divider([len(titles)+20, len(authors)+10, 15])
 
     for i in range(len(titles)):
         status = "Available" if int(quantities[i]) > 0 else "Unavailable"
-        print_row([titles[i], authors[i], status], [30, 25, 15])
+        print_row([titles[i], authors[i], status], [len(titles)+20, len(authors)+10, 15])
 
     input("\nPress Enter to return to the Guest Menu...")
     return back()
