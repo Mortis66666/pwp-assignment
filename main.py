@@ -1089,13 +1089,15 @@ def guest_view_catalog():
     quantities = get_column_by_name(books, "quantity")[2:]
 
     clear_screen()
-    print_divider([len(titles)+20, len(authors)+10, 15])
-    print_row(["Title", "Author", "Status"], [len(titles)+20, len(authors)+10, 15])
-    print_divider([len(titles)+20, len(authors)+10, 15])
+    print_divider([len(titles) + 20, len(authors) + 10, 15])
+    print_row(["Title", "Author", "Status"], [len(titles) + 20, len(authors) + 10, 15])
+    print_divider([len(titles) + 20, len(authors) + 10, 15])
 
     for i in range(len(titles)):
         status = "Available" if int(quantities[i]) > 0 else "Unavailable"
-        print_row([titles[i], authors[i], status], [len(titles)+20, len(authors)+10, 15])
+        print_row(
+            [titles[i], authors[i], status], [len(titles) + 20, len(authors) + 10, 15]
+        )
 
     input("\nPress Enter to return to the Guest Menu...")
     return back()
@@ -1201,23 +1203,4 @@ def user_menu():
 
 
 if __name__ == "__main__":
-    # print((user_menu("Bob", ADMIN)))
     home_menu()
-
-    # add_rows(
-    #     BORROW_LOGS,
-    #     ("id", "password", "username", "passsword"),
-    #     (123123, "psasdsadas", "Ali", 3),
-    # )
-    # table = load_table("test")
-
-    # filtered = filter_rows(table, where_equal(("username", "Bob")))
-    # print_table(filtered)
-
-    # update_rows(
-    #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
-    # )
-
-    # table = load_table("test")
-
-    # print_table(table)
