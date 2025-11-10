@@ -1,6 +1,9 @@
 import os
 import math
+import datetime
 from getpass import getpass
+
+# The assignment question did not limit the amount of standard libraries we can use
 
 # Role identifiers
 GUEST = -1
@@ -23,17 +26,6 @@ history = []
 
 
 # Helper functions
-def menu_title(title):
-    def decorator(func):
-        def wrapper():
-            width = len(title) + 2
-            border = "+" + "-" * width + "+"
-            print(f"{border}\n| {title} |\n{border}")
-            return func()
-        
-        return wrapper
-    
-    return decorator
 
 
 def exception_quit(e):
@@ -45,6 +37,12 @@ def exception_quit(e):
 
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
+
+
+def print_title(title):
+    width = len(title) + 2
+    border = "+" + "-" * width + "+"
+    print(f"{border}\n| {title} |\n{border}")
 
 
 def menu(func):
@@ -62,6 +60,17 @@ def menu(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def menu_title(title):
+    def decorator(func):
+        def wrapper():
+            print_title(title)
+            return func()
+
+        return wrapper
+
+    return decorator
 
 
 def option_value(x):
@@ -373,6 +382,14 @@ def create_user(username, password, role=MEMBER):
     )
 
 
+def get_user_id(username):
+    users = load_table(USERS_TABLE)
+    filtered = filter_rows(users, where_equal(("username", username)))
+    if is_empty(filtered):
+        return None
+    return get_column_by_name(filtered, "id")[-1]
+
+
 # Book table functions
 def create_book(title, author, isbn, quantity=1):
     books = load_table(BOOKS_TABLE)
@@ -387,8 +404,8 @@ def create_book(title, author, isbn, quantity=1):
 
 # Admin features
 @menu
+@menu_title("Book Management")
 def book_management():
-    menu_title("Book Management")(lambda: None)()
     return prompt_options(
         ["Add new books", "Remove books", "Modify books", "Back"],
         [add_book, remove_book, modify_book, back],
@@ -507,8 +524,8 @@ def modify_book():
 
 
 @menu
+@menu_title("User Management")
 def user_management():
-    menu_title("User Management")(lambda: None)()
     return prompt_options(
         ["Add new user", "Remove user", "Back"],
         [add_user, remove_user, back],
@@ -525,6 +542,14 @@ def add_user():
     clear_screen()
 
     username = input("Username: ")
+
+    users = load_table(USERS_TABLE)
+    filtered = filter_rows(users, where_equal(("username", username)))
+
+    if not is_empty(filtered):
+        print_log("Username already exists, please try again")
+        return add_user()
+
     password = getpass()
 
     create_user(username, password, user_role)
@@ -563,19 +588,23 @@ def remove_user():
 
 # Staff features
 @menu
+@menu_title("Search Menu")
 def search_menu():
-    menu_title("Search Menu")(lambda: None)()
     books = load_table(BOOKS_TABLE)
-    
+
     # Let staff choose which field to search by
     field = prompt_options(
         ["Title", "Author", "ISBN", "Back"],
         [option_value("title"), option_value("author"), option_value("isbn"), back],
         error_function=log_and_redirect(back, "Search cancelled, invalid option"),
     )
-    query = input(
-        "Enter search query (partial match, case-insensitive). Leave blank to list all: "
-    ).strip().lower()
+    query = (
+        input(
+            "Enter search query (partial match, case-insensitive). Leave blank to list all: "
+        )
+        .strip()
+        .lower()
+    )
 
     def filter_func(table_row):
         if query == "":
@@ -614,7 +643,7 @@ def search_menu():
     sel_isbn = isbns[selection]
     sel_qty = quantities[selection]
 
-  # Show selected book details
+    # Show selected book details
     clear_screen()
     print("Book details")
     print_divider([20, 40])
@@ -628,7 +657,11 @@ def search_menu():
     # Allow staff to issue new quantity of books
     def do_issue_quantity():
         try:
-            qty_inp = int(input("Enter a quantity to issue new books (positive integer): ").strip())
+            qty_inp = int(
+                input(
+                    "Enter a quantity to issue new books (positive integer): "
+                ).strip()
+            )
             if qty_inp <= 0:
                 raise ValueError("Amount must be a positive integer")
         except Exception:
@@ -653,6 +686,7 @@ def search_menu():
 
     return issue_option
 
+
 @menu
 def issued_report():
     # Display a report of all currently issued books with borrower and due date info.
@@ -676,11 +710,21 @@ def issued_report():
         due = get_column_by_name(log_tbl, "due_date")[-1]
 
         uname_tbl = filter_rows(users, where_equal(("id", borrower_id)))
-        uname = get_column_by_name(uname_tbl, "username")[-1] if not is_empty(uname_tbl) else str(borrower_id)
+        uname = (
+            get_column_by_name(uname_tbl, "username")[-1]
+            if not is_empty(uname_tbl)
+            else str(borrower_id)
+        )
 
         book_tbl = filter_rows(books, where_equal(("id", book_id)))
-        btitle = get_column_by_name(book_tbl, "title")[-1] if not is_empty(book_tbl) else str(book_id)
-        bqty = None if is_empty(book_tbl) else get_column_by_name(book_tbl, "quantity")[-1]
+        btitle = (
+            get_column_by_name(book_tbl, "title")[-1]
+            if not is_empty(book_tbl)
+            else str(book_id)
+        )
+        bqty = (
+            None if is_empty(book_tbl) else get_column_by_name(book_tbl, "quantity")[-1]
+        )
 
         due_format = str(due)
         try:
@@ -689,21 +733,25 @@ def issued_report():
                 due_format = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
         except Exception:
             pass
-        
+
         overdue = False
         try:
             overdue = int(due) < today
         except Exception:
             pass
 
-        options.append(f"[{loan_id}] {btitle} -> {uname} (Due: {due_format}) {'Overdue' if overdue else 'Due'} (Qty:{bqty})")
+        options.append(
+            f"[{loan_id}] {btitle} -> {uname} (Due: {due_format}) {'Overdue' if overdue else 'Due'} (Qty:{bqty})"
+        )
         metas.append((loan_id, book_id, bqty, due_format))
 
     sel = paginator(
         options,
         [option_value(i) for i in range(len(options))],
         page_title="Issued books (select to act)",
-        error_function=log_and_redirect(back, "Issued report cancelled, invalid option"),
+        error_function=log_and_redirect(
+            back, "Issued report cancelled, invalid option"
+        ),
     )
 
     loan_id, book_id, book_qty, due_format = metas[sel]
@@ -719,12 +767,16 @@ def issued_report():
     def mark_returned():
         # remove the borrow log
         delete_rows(BORROW_LOGS, where_equal(("id", loan_id)))
-        
+
         # increment book quantity after marking returned
         if book_qty is not None:
             try:
                 new_qt = int(book_qty) + 1
-                update_rows(BOOKS_TABLE, ("quantity", new_qt), filter_func=where_equal(("id", book_id)))
+                update_rows(
+                    BOOKS_TABLE,
+                    ("quantity", new_qt),
+                    filter_func=where_equal(("id", book_id)),
+                )
             except Exception:
                 pass
         print_log(f"Loan {loan_id} marked returned. Book [{book_id}] quantity updated.")
@@ -739,26 +791,17 @@ def issued_report():
         [mark_returned, keep_not_returned, back],
         error_function=log_and_redirect(back, "Action cancelled, invalid option"),
     )
-    
+
+
 # Member features
-import datetime
-
-def get_user_id(username):
-    users = load_table(USERS_TABLE)
-    filtered = filter_rows(users, where_equal(("username", username)))
-    if is_empty(filtered):
-        return None
-    return get_column_by_name(filtered, "id")[-1]
-
-
 @menu
+@menu_title("Search Books")
 def search_book():
-    menu_title("Search Books")(lambda: None)()
     books = load_table(BOOKS_TABLE)
     if is_empty(books):
         print_log("There are currently no books available")
         return back()
-        
+
     error_function = log_and_redirect(back, "Search cancelled, invalid option")
 
     # Let member choose search field
@@ -767,13 +810,17 @@ def search_book():
         [option_value("title"), option_value("author"), option_value("isbn"), back],
         error_function=error_function,
     )
-    
+
     if field == back:
         return back()
-        
-    query = input(
-        "Enter search query (partial match, case-insensitive). Leave blank to list all: "
-    ).strip().lower()
+
+    query = (
+        input(
+            "Enter search query (partial match, case-insensitive). Leave blank to list all: "
+        )
+        .strip()
+        .lower()
+    )
 
     def filter_func(table_row):
         if query == "":
@@ -821,7 +868,7 @@ def search_book():
     print_row(["Author", authors[selection]], [20, 40])
     print_row(["ISBN", str(sel_isbn)], [20, 40])
     print_row(["Quantity", str(sel_qty)], [20, 40])
-    
+
     def do_borrow_book():
         return borrow_book_core(sel_id, sel_title, sel_qty)
 
@@ -830,12 +877,11 @@ def search_book():
         [do_borrow_book, back],
         error_function=log_and_redirect(back, "Action cancelled, invalid option"),
     )
-        
+
     return borrow_option
 
 
 def borrow_book_core(book_id, book_title, available_qty):
- 
     # Check if book is available
     if available_qty < 1:
         print_log(f"Sorry, '{book_title}' is currently out of stock")
@@ -845,9 +891,9 @@ def borrow_book_core(book_id, book_title, available_qty):
     if user_id is None:
         print_log("Error: could not retrieve your user ID")
         return back()
-    
+
     logs = load_table(BORROW_LOGS)
-        
+
     # Check if book has already been borrowed by member
     def check_duplicate_borrow(table_row):
         book_match = where_equal(("book_id", book_id))
@@ -855,30 +901,32 @@ def borrow_book_core(book_id, book_title, available_qty):
         return where_and(book_match, user_match)(table_row)
 
     existing_logs = filter_rows(logs, check_duplicate_borrow)
-    
+
     if not is_empty(existing_logs):
-        print_log(f"You have already borrowed a copy of '{book_title}'. Please return it first.")
+        print_log(
+            f"You have already borrowed a copy of '{book_title}'. Please return it first."
+        )
         return back()
 
     #  Due date (7 days)
     borrow_date = datetime.date.today()
     due_date = borrow_date + datetime.timedelta(days=7)
     due_date_int = int(due_date.strftime("%Y%m%d"))
-    
+
     # New borrow log entry
     max_log_id = 0
-    if not is_empty(logs) and 'id' in logs[0]:
+    if not is_empty(logs) and "id" in logs[0]:
         max_log_id = max(get_column_by_name(logs, "id")[2:])
-        
+
     new_log_id = max_log_id + 1
-    
+
     try:
         add_rows(
             BORROW_LOGS,
             ("id", "borrower_id", "book_id", "due_date"),
             (new_log_id, user_id, book_id, due_date_int),
         )
-        
+
         # Decrease book quantity
         new_qty = available_qty - 1
         update_rows(
@@ -886,9 +934,11 @@ def borrow_book_core(book_id, book_title, available_qty):
             ("quantity", new_qty),
             filter_func=where_equal(("id", book_id)),
         )
-        
+
         due_date_str = due_date.strftime("%Y-%m-%d")
-        print_log(f"Successfully borrowed '{book_title}'. Due date: {due_date_str}. Remaining copies: {new_qty}")
+        print_log(
+            f"Successfully borrowed '{book_title}'. Due date: {due_date_str}. Remaining copies: {new_qty}"
+        )
 
     except Exception as e:
         print_log(f"An error occurred during borrowing: {e}")
@@ -902,17 +952,17 @@ def view_borrow_history():
     if user_id is None:
         print_log("Error: Could not retrieve your user ID.")
         return back()
-        
+
     logs = load_table(BORROW_LOGS)
     user_logs = filter_rows(logs, where_equal(("borrower_id", user_id)))
-    
+
     if is_empty(user_logs):
         print_log("You have no books currently borrowed.")
         return back()
-        
+
     books = load_table(BOOKS_TABLE)
     today = int(datetime.date.today().strftime("%Y%m%d"))
-    
+
     options = []
     log_ids, book_ids = [], []
 
@@ -923,7 +973,11 @@ def view_borrow_history():
         due = get_column_by_name(log_tbl, "due_date")[-1]
 
         book_tbl = filter_rows(books, where_equal(("id", book_id)))
-        btitle = get_column_by_name(book_tbl, "title")[-1] if not is_empty(book_tbl) else f"Book ID: {book_id}"
+        btitle = (
+            get_column_by_name(book_tbl, "title")[-1]
+            if not is_empty(book_tbl)
+            else f"Book ID: {book_id}"
+        )
 
         due_format = str(due)
         overdue = False
@@ -936,24 +990,25 @@ def view_borrow_history():
             pass
 
         status = "OVERDUE!!!" if overdue else "Currently borrowed :)"
-        
+
         options.append(f"[{loan_id}] {btitle} (Due: {due_format}) - {status}")
         log_ids.append(loan_id)
         book_ids.append(book_id)
 
     paginator(
         options,
-        [back] * len(options), 
+        [back] * len(options),
         page_title=f"Borrowed Books for {username}",
         cancel_function=back,
         error_function=log_and_redirect(back, "Invalid option"),
     )
-    
+
     return back()
 
-# Guest features
+
 # Guest features
 @menu
+@menu_title("Guest Search & Availability")
 def guest_search_books():
     """
     Allows guests to search for books by title or author and check availability.
@@ -963,7 +1018,6 @@ def guest_search_books():
     - If no books match the search, an informative message is shown.
     """
 
-    menu_title("Guest Search & Availability")(lambda: None)()
     books = load_table(BOOKS_TABLE)
 
     if is_empty(books):
@@ -977,7 +1031,9 @@ def guest_search_books():
         error_function=log_and_redirect(back, "Search cancelled, invalid option"),
     )
 
-    query = input("Enter your search keyword (leave blank to list all): ").strip().lower()
+    query = (
+        input("Enter your search keyword (leave blank to list all): ").strip().lower()
+    )
 
     def filter_func(table_row):
         if query == "":
@@ -1013,6 +1069,7 @@ def guest_search_books():
 
 
 @menu
+@menu_title("Library Catalog (Guest View)")
 def guest_view_catalog():
     """
     Displays the entire library catalog for guests.
@@ -1022,7 +1079,6 @@ def guest_view_catalog():
     - The table includes book title, author, and status.
     """
 
-    menu_title("Library Catalog (Guest View)")(lambda: None)()
     books = load_table(BOOKS_TABLE)
 
     if is_empty(books):
@@ -1046,13 +1102,10 @@ def guest_view_catalog():
     return back()
 
 
-
-
-
 # Home menu
 @menu
 def home_menu():
-    menu_title("Ligma Management System (LMS) Main Menu")(lambda: None)()
+    print_title("Ligma Management System (LMS) Main Menu")
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
@@ -1092,40 +1145,46 @@ def login_menu():
     return user_menu()
 
 
+def logout():
+    global username, role
+    username = "Guest"
+    role = -1
+    print_log("Successfully logged out.")
+    return home_menu()
+
+
 @menu
 def user_menu():
     menu_options = []
 
-    # TODO add options for each user
     match role:
         case 0:  # Admin
-            menu_title("Ligma Management System (LMS) Admin Menu")(lambda: None)()
+            print_title("Ligma Management System (LMS) Admin Menu")
             menu_options = [
                 ("Book Management", book_management),
                 ("User Management", user_management),
             ]
         case 1:  # Staff
-            menu_title("Ligma Management System (LMS) Staff Menu")(lambda: None)()
+            print_title("Ligma Management System (LMS) Staff Menu")
             menu_options = [
                 ("Search Books", search_menu),
-                ("Issued Books Report", issued_report)
+                ("Issued Books Report", issued_report),
             ]
         case 2:  # Member
-            menu_title("Ligma Management System (LMS) Member Menu")(lambda: None)()
+            print_title("Ligma Management System (LMS) Member Menu")
             menu_options = [
                 ("Search and Borrow Books", search_book),
-                ("View Borrow History", view_borrow_history)
+                ("View Borrow History", view_borrow_history),
             ]
         case -1:  # Guest
-            menu_title("Ligma Management System (LMS) Guest Menu")(lambda: None)()
+            print_title("Ligma Management System (LMS) Guest Menu")
             menu_options = [
                 ("Search Books & Check Availability", guest_search_books),
                 ("View Entire Book Catalog", guest_view_catalog),
-                ("Login / Register", home_menu)
+                ("Login", login_menu),
             ]
 
-
-    menu_options.append(["Logout", home_menu])
+    menu_options.append(["Logout", logout])
 
     return prompt_options(*zip(*menu_options))
 
