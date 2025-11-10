@@ -529,9 +529,6 @@ def user_management():
     return prompt_options(
         ["Add new user", "Remove user", "Back"],
         [add_user, remove_user, back],
-        error_function=log_and_redirect(
-            back, "User management cancelled, invalid option"
-        ),
     )
 
 
@@ -539,11 +536,7 @@ def user_management():
 def add_user():
     print("What kind of user would you like to create?")
     user_role = prompt_options(
-        ["Staff", "Member"],
-        [option_value(STAFF), option_value(MEMBER)],
-        error_function=log_and_redirect(
-            back, "User creation cancelled, invalid option"
-        ),
+        ["Staff", "Member"], [option_value(STAFF), option_value(MEMBER)]
     )
 
     clear_screen()
@@ -597,6 +590,9 @@ def remove_user():
 @menu
 @menu_title("Search Menu")
 def search_menu():
+    '''
+    Allows admin to search for books by title, author, or ISBN, and issue new quantities.
+    '''
     books = load_table(BOOKS_TABLE)
 
     # Let staff choose which field to search by
@@ -621,6 +617,7 @@ def search_menu():
 
     results = filter_rows(books, filter_func)
 
+    # no results found
     if is_empty(results):
         print_log("No books matched your search.")
         return back()
@@ -696,7 +693,9 @@ def search_menu():
 
 @menu
 def issued_report():
-    # Display a report of all currently issued books with borrower and due date info.
+    ''' 
+    Display a report of all currently issued books with borrower and due date info.
+    '''
     import datetime
 
     logs = load_table(BORROW_LOGS)
@@ -802,6 +801,7 @@ def issued_report():
 
 # Member features
 @menu
+
 @menu_title("Search Books")
 def search_book():
     books = load_table(BOOKS_TABLE)
@@ -1096,15 +1096,13 @@ def guest_view_catalog():
     quantities = get_column_by_name(books, "quantity")[2:]
 
     clear_screen()
-    print_divider([len(titles) + 20, len(authors) + 10, 15])
-    print_row(["Title", "Author", "Status"], [len(titles) + 20, len(authors) + 10, 15])
-    print_divider([len(titles) + 20, len(authors) + 10, 15])
+    print_divider([len(titles)+20, len(authors)+10, 15])
+    print_row(["Title", "Author", "Status"], [len(titles)+20, len(authors)+10, 15])
+    print_divider([len(titles)+20, len(authors)+10, 15])
 
     for i in range(len(titles)):
         status = "Available" if int(quantities[i]) > 0 else "Unavailable"
-        print_row(
-            [titles[i], authors[i], status], [len(titles) + 20, len(authors) + 10, 15]
-        )
+        print_row([titles[i], authors[i], status], [len(titles)+20, len(authors)+10, 15])
 
     input("\nPress Enter to return to the Guest Menu...")
     return back()
@@ -1119,7 +1117,6 @@ def home_menu():
     return prompt_options(
         ["Login", "Continue as guest", "Quit Program"],
         [login_menu, user_menu, exit],
-        error_function=log_and_redirect(home_menu, "Invalid option, please try again."),
     )
 
 
@@ -1207,11 +1204,27 @@ def user_menu():
 
     menu_options.append(["Logout", logout])
 
-    return prompt_options(
-        *zip(*menu_options),
-        error_function=log_and_redirect(user_menu, "Invalid option, please try again."),
-    )
+    return prompt_options(*zip(*menu_options))
 
 
 if __name__ == "__main__":
+    # print((user_menu("Bob", ADMIN)))
     home_menu()
+
+    # add_rows(
+    #     BORROW_LOGS,
+    #     ("id", "password", "username", "passsword"),
+    #     (123123, "psasdsadas", "Ali", 3),
+    # )
+    # table = load_table("test")
+
+    # filtered = filter_rows(table, where_equal(("username", "Bob")))
+    # print_table(filtered)
+
+    # update_rows(
+    #     "test", ("username", "Jacky"), filter_func=where_equal(("username", "Jack"))
+    # )
+
+    # table = load_table("test")
+
+    # print_table(table)
